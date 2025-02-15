@@ -1,0 +1,7 @@
+numpy
+geopy
+opencv-python
+scipy
+torch
+torchvision
+pyexif
