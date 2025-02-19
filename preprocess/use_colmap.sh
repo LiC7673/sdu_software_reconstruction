@@ -3,30 +3,12 @@
 # fi
 echo $1
 PROJECT_PATH='/home/lzh/igip_project/software_reconstrution/out'
-# colmap feature_extractor --database_path $path$/database.db --image_path $path$
-# colmap exhaustive_matcher --database_path $path$/database.db+
-# colmap mapper --database_path $path$/database.db --image_path $path$ --output_path $path$
-# colmap project --create --database_path $project_path --image_path $project_path
-# colmap feature_extractor \
-#     --database_path $PROJECT_PATH/database.db \
-#     --image_path $PROJECT_PATH/input
-# colmap exhaustive_matcher \ # or alternatively any other matcher
-#     --database_path $PROJECT_PATH/database.db
-
-# colmap point_triangulator \
-#     --database_path $PROJECT_PATH/database.db \
-#     --image_path $PROJECT_PATH
-#     --input_path path/to/manually/created/sparse/model \
-#     --output_path path/to/triangulated/sparse/model
-# colmap point_triangulator \
-#     --database_path $PROJECT_PATH/database.db \
-#     --image_path $PROJECT_PATH
-#     --input_path path/to/manually/created/sparse/model \
-#     --output_path path/to/triangulated/sparse/model
+colmap_PATH=/usr/bin/colmap
 echo $PROJECT_PATH/database.db 
-colmap feature_extractor --database_path $PROJECT_PATH/database.db --image_path  $PROJECT_PATH/input
-# colmap exhaustive_matcher --database_path  $PROJECT_PATH/database.db
-# colmap point_triangulator --database_path $PROJECT_PATH/database.db --image_path $PROJECT_PATH/input --input_path $PROJECT_PATH/sparse/model --output_path $PROJECT_PATH/sparse/model
+
+colmap_PATH feature_extractor --database_path $PROJECT_PATH/database.db --image_path  $PROJECT_PATH/input
+colmap_PATH exhaustive_matcher --database_path  $PROJECT_PATH/database.db
+colmap_PATH point_triangulator --database_path $PROJECT_PATH/database.db --image_path $PROJECT_PATH/input --input_path $PROJECT_PATH--output_path $PROJECT_PATH
 # # 或者
 # colmap mapper --database_path  $PROJECT_PATH/database.db --image_path images --input_path $PROJECT_PATH/sparse/model --output_path  $PROJECT_PATH/sparse/model
 

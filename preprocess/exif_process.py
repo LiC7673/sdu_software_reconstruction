@@ -7,23 +7,6 @@ from scipy.spatial.transform import Rotation
 import piexif
 from read_write_model import Camera,Image,write_cameras_text,write_images_text,write_cameras_binary,write_images_binary
 #通过exif读取相机的内外参
-def visualize_cameras(cameras, images):
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    for image_id, image_data in images.items():
-        qvec = image_data['qvec']
-        tvec = image_data['tvec']
-
-        # Convert quaternion to rotation matrix
-        rotation = R.from_quat(qvec).as_matrix()
-
-        # Plot camera position
-        ax.scatter(tvec[0], tvec[1], tvec[2], c='r', marker='o')
-
-        # Plot camera orientation
-        camera_direction = rotation @ np.array([0, 0, 1])
-        ax.quiver(tvec[0], tvec[1], tvec[2], camera_direction[0], camera_direction[1], camera_direction[2], length=0.5, normalize=True)
 
 
 def compute_DJI_instrinc(tags_dict):
@@ -161,7 +144,7 @@ def compute_DIJ_extrinsic(tags_dict):
     pitch=float(tags_dict["CameraPitch"])
     roll=float(tags_dict["CameraRoll"])
     yaw=float(tags_dict["CameraYaw"])
-    print("pitch,roll,yaw:",pitch,roll,yaw)
+ #   print("pitch,roll,yaw:",pitch,roll,yaw)
     R=calculate_rotation_matrix(yaw, pitch, roll)
 
     latitude_dms= re.findall(r"[-+]?\d*\.\d+|\d+", tags_dict["GPSLatitude"])
@@ -242,10 +225,70 @@ def get_camera_param(img_path):
     tags_dict= img_d.getDictTags()
     instrinc,extrinsic=compute_DJI_instrinc(tags_dict),compute_DIJ_extrinsic(tags_dict)
     return instrinc,extrinsic
+
+
+## 归一化外参矩阵
+def norm_extrinsic_divide(extrinsic_matrices):
+    norms = [np.linalg.norm(extrinsic[:3, 3]) for extrinsic in extrinsic_matrices]
+
+    # 取最大范数作为全局缩放因子
+    max_norm = max(norms)
+    normalized_extrinsics_global = []
+    for extrinsic in extrinsic_matrices:
+        t = extrinsic[:3, 3]
+        new_extrinsic = extrinsic.copy()
+        if max_norm != 0:
+            new_extrinsic[:3, 3] = t / max_norm  # 按最大范数缩放
+        normalized_extrinsics_global.append(new_extrinsic)
+    return normalized_extrinsics_global,max_norm
+
+# def norm_extrinsic_max_min(extrinsic_matrices):
+#     t_vectors = np.array([extrinsic[:3, 3] for extrinsic in extrinsic_matrices]) 
+#     t_min = np.min(t_vectors, axis=0)
+#     t_max = np.max(t_vectors, axis=0)
+
+#     # 防止除零错误
+#     t_range = t_max - t_min
+#     t_range[t_range == 0] = 1  # 如果最大值等于最小值，避免除0错误
+
+#     # 归一化所有 t
+#     t_vectors_normalized = (t_vectors - t_min) / t_range
+
+#     # 更新所有外参矩阵
+#     normalized_extrinsics = []
+#     for i, extrinsic in enumerate(extrinsic_matrices):
+#         new_extrinsic = extrinsic.copy()
+#         new_extrinsic[:3, 3] = t_vectors_normalized[i]  # 赋值归一化的 t
+#         normalized_extrinsics.append(new_extrinsic)
+
+#     return normalized_extrinsics,t_max,t_min,t_range
+
+## 
+
+
+#jpg格式
+def save_vis(dir_path,out_path):
+    file_names = []
+    exstrinscs=[]
+    instrinscs=[]
+    for root, dirs, files in os.walk(dir_path):
+        for file in files:
+            if file.lower().endswith(".jpg") or file.lower().endswith(".jpeg"):  # 检查文件扩展名是否为.jpg（忽略大小写）
+                file_names.append(file)
+
+    for i in range(len(file_names)):
+       input_image_path = os.path.join(dir_path,file_names[i])
+       instrinsc,exstrinsc=get_camera_param(input_image_path)
+       instrinscs.append(instrinsc)
+       exstrinscs.append(exstrinsc)
+    np.savez(os.path.join(out_path,"camera_params.npz"),instrinscs=instrinscs,exstrinscs=exstrinscs)
 #test code
 #统一单位都是米
 if __name__ == "__main__":
     # path='/home/lzh/dataSet/softcollege/100_0001/input/'
+   # dir_path='/home/lzh/dataSet/software_demo/new_lake/lake'
+    dir_path='/home/lzh/dataSet/software_demo/lake/block1/0'
+    save_vis(dir_path,'./')
     # imgs_names=os.listdir(path)
     # for img_name in imgs_names:
     #     img = pyexif.ExifEditor(path+img_name) 
@@ -253,35 +296,35 @@ if __name__ == "__main__":
     #     tags_dict= img.getDictTags()
     #     # print(type( tags_dict["FocalLength"]))
     #     print(tags_dict["FocalLength"])
-
-    img_d= pyexif.ExifEditor('/home/lzh/dataSet/DJI_0129.JPG') 
     
-    # img_d = pyexif.ExifEditor("/home/lzh/igip_project/software_reconstrution/preprocess/image_with_metadata.jpg") 
-    tags_dict= img_d.getDictTags()
+    # img_d= pyexif.ExifEditor('/home/lzh/dataSet/DJI_0129.JPG') 
+    
+    # # img_d = pyexif.ExifEditor("/home/lzh/igip_project/software_reconstrution/preprocess/image_with_metadata.jpg") 
+    # tags_dict= img_d.getDictTags()
 
 
-    # print(tags_dict["camrera_params"])
-    import piexif
-    from PIL import Image
-    import json
-    image_path='/home/lzh/dataSet/DJI_0129.JPG'
-    img= Image.open(image_path)
+    # # print(tags_dict["camrera_params"])
+    # import piexif
+    # from PIL import Image
+    # import json
+    # image_path='/home/lzh/dataSet/DJI_0129.JPG'
+    # img= Image.open(image_path)
 
-    # 获取现有的 EXIF 数据
-    exif_dict = piexif.load(img.info["exif"]) if "exif" in img.info else piexif.load(piexif.dump({}))
+    # # 获取现有的 EXIF 数据
+    # exif_dict = piexif.load(img.info["exif"]) if "exif" in img.info else piexif.load(piexif.dump({}))
 
-    # for key in exif_dict:
-    #     print(key, exif_dict[key])
-    my_dict=dict_camera_param(compute_DJI_instrinc(tags_dict),compute_DIJ_extrinsic(tags_dict))
-    metadata_json = json.dumps(my_dict)  # 将字典转换为 JSON 字符串
-    # 将自定义数据插入到 UserComment 字段（或者其他适当的字段）
-    if 0x9286 not in exif_dict['0th']:
-        exif_dict['0th'][0x9286] = b''
-    exif_dict['0th'][0x9286] = metadata_json.encode('utf-8')
+    # # for key in exif_dict:
+    # #     print(key, exif_dict[key])
+    # my_dict=dict_camera_param(compute_DJI_instrinc(tags_dict),compute_DIJ_extrinsic(tags_dict))
+    # metadata_json = json.dumps(my_dict)  # 将字典转换为 JSON 字符串
+    # # 将自定义数据插入到 UserComment 字段（或者其他适当的字段）
+    # if 0x9286 not in exif_dict['0th']:
+    #     exif_dict['0th'][0x9286] = b''
+    # exif_dict['0th'][0x9286] = metadata_json.encode('utf-8')
 
-    # 将修改后的 EXIF 数据保存回图像
-    exif_bytes = piexif.dump(exif_dict)
-    img.save("image_with_metadata.jpg", exif=exif_bytes)
+    # # 将修改后的 EXIF 数据保存回图像
+    # exif_bytes = piexif.dump(exif_dict)
+    # img.save("image_with_metadata.jpg", exif=exif_bytes)
 
     # # 解析 EXIF 数据为字典
     # tags_dict = exif_to_dict(exif_data)

@@ -72,7 +72,7 @@ def save_imgs(images, output_dir, iamge_name,exif_data=None):
     # print(exif_data)
     # exif_bytes = pyexif.dump(exif_data)
     for i in range(len(images)):
-        output_path = f"{output_dir}/{iamge_name[:-4]}_{i+1}.jpg"
+        output_path = f"{output_dir}/{i+1}_{iamge_name[:-4]}.jpg"
         output_paths.append(output_path)
         images[i].save(output_path, "JPEG")
         # print(f"保存图片到: {output_path}")
@@ -107,8 +107,8 @@ def split_camera_param(instrinsc,exstrinsc,weight,height,w_k,h_k):
         for j in range(w_k):
             #内参
             instrinsc_i = copy.deepcopy(instrinsc)
-            instrinsc_i[0, 2] = instrinsc_i[0, 2] - i/w_k*weight* instrinsc_i[0, 2]
-            instrinsc_i[1, 2] = instrinsc_i[1, 2] - j/h_k*height * instrinsc_i[1, 2]
+            instrinsc_i[0, 2] = instrinsc_i[0, 2] - (i/w_k)*weight
+            instrinsc_i[1, 2] = instrinsc_i[1, 2] - (j/h_k)*height
             instrinscs.append(instrinsc_i)
             exstrinscs.append(copy.deepcopy(exstrinsc))
     return instrinscs,exstrinscs
@@ -126,7 +126,7 @@ if __name__ == "__main__":
       
     # split_image(input_image_path, output_directory, w_k, h_k)
 # # 使用示例
-# input_image_path = '/home/lzh/dataSet/DJI_0129.JPG'
+# input_image_path = '/home/lzh/dataSet/DJI_0129.JPG'``
 # output_directory = "../out"
 # w_k = 2  # 水平方向分成2块
 # h_k = 2  # 垂直方向分成2块

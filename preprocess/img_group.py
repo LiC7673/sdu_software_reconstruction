@@ -18,7 +18,7 @@ def move_file(src_path, dst_path, file):
 
 dir_path="/home/lzh/dataSet/software_demo/lake/block1"
 names=os.listdir(dir_path)
-sorted_files = sorted(files, key=lambda x: int(re.search(r'\d+', x).group()))
+sorted_files = sorted(names, key=lambda x: int(re.search(r'\d+', x).group()))
 sub_dir_num=10
 # for i in range(len(names)//sub_dir_num+ (1 if len(names)%sub_dir_num!=0 else 0)):
 cur_path=None

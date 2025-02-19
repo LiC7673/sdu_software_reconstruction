@@ -8,6 +8,7 @@ import re
 import sqlite3
 import sys
 import subprocess
+from PIL import Image
 IS_PYTHON3 = sys.version_info[0] >= 3
 def array_to_blob(array):
     if IS_PYTHON3:
@@ -22,7 +23,8 @@ def insert_camera_params(database_path, cameras):
     cursor = conn.cursor()
     
     # 插入相机信息
-    for camera in cameras:
+
+    for _,camera in cameras.items():
         camera_id=int(camera.id)
         camera_model=camera.model
         width=int(camera.width)
@@ -51,7 +53,7 @@ def insert_image_params(database_path, images):
     cursor = conn.cursor()
     
     # 插入图像信息
-    for image in images:
+    for _,image in images.items():
         image_id=image.id
         qvec=image.qvec
         tvec=image.tvec
@@ -65,15 +67,25 @@ def insert_image_params(database_path, images):
     
     conn.commit()
     conn.close()
+
+def scaling_camera_params(instrinsc,exstrinsc,alpha):
+    instrinsc=instrinsc*alpha
+    return instrinsc,exstrinsc
+def scaling_image(input_path,out_path,alpha=0.25):
+
+    img = cv2.imread(input_path)  # 读取图片
+    h, w = img.shape[:2] 
+    new_width = int(w * alpha)
+    new_height = int(h * alpha)
+    resized_img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_AREA)  
+    cv2.imwrite(out_path, resized_img)  # 保存
 if __name__ == '__main__':
-    dir_path="/home/lzh/dataSet/software_demo/lake/block1/0"
+    dir_path="/home/lzh/dataSet/software_demo/new_lake/lake"
 
-    output_directory="../out"
+    output_directory="/home/lzh/igip_project/sdu_software_reconstruction/out/lake_low"
     output_directory_image_path=os.path.join(output_directory,"input")
-    w_k = 5  # 水平方向分成5块
-    h_k = 3  # 垂直方向分成3块
-    similarity_threshold=0.8
 
+    alpha=0.25
     database_path=os.path.join(output_directory,"database.db")
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
@@ -96,61 +108,58 @@ if __name__ == '__main__':
         for file in files:
             if file.lower().endswith(".jpg"):  # 检查文件扩展名是否为.jpg（忽略大小写）
                 file_names.append(file)
+    #sorted_file_names = file_names
     sorted_file_names = sorted(file_names, key=lambda x: int(re.search(r'\d+', x).group()))
-    cameras=[]
-    images=[]
-
+    # cameras=[]
+    # images=[]
+    cameras={}
+    images={}
     cur_camera_id=0
     cur_img_id=0
+    instrinscs=[]
+    exstrinscs=[]
+    without_preprocess_instrinscs=[]
+    without_preprocess_exstrinscs=[]
+    print("numbers :",len(sorted_file_names))
+    for i in range(len(sorted_file_names)):
+       input_image_path = os.path.join(dir_path, sorted_file_names[i])
+       instrinsc,exstrinsc=exif_process.get_camera_param(input_image_path)
+       without_preprocess_exstrinscs.append(exstrinsc)
+       without_preprocess_instrinscs.append(instrinsc)
+    without_preprocess_exstrinscs,_=exif_process.norm_extrinsic_divide(without_preprocess_exstrinscs)
+  #  print("without_preprocess_exstrinscs")
+    input_image_path = os.path.join(dir_path, sorted_file_names[0])
+    iamge_name = os.path.basename(input_image_path)
+    img = Image.open( input_image_path)
 
-
+        # 获取图片尺寸
+    width, height = img.size
     for i in range(len(sorted_file_names)):
         input_image_path = os.path.join(dir_path, sorted_file_names[i])
-        instrinsc,exstrinsc=exif_process.get_camera_param(input_image_path)
-    
-        now_imgs,iamge_name,width,height= split_img.split_img_with_unque(input_image_path,w_k, h_k)
-        ins,exs=split_img.split_camera_param(instrinsc,exstrinsc,width,height,w_k,h_k)
-      
-        if cur_imgs is None:
-                 
-            cur_imgs=now_imgs
-            for i in range(len(ins)):
-                camera=exif_process.instrinsc2camera(ins[i],cur_camera_id,width//w_k,height//h_k)
-                cameras.append(camera)
-                img=exif_process.extrinsic2image(exs[i],cur_img_id,f"{iamge_name[:-4]}_{i+1}.jpg",camera.id)      
+        iamge_name = os.path.basename(input_image_path)
+        # instrinsc,exstrinsc=exif_process.get_camera_param(input_image_path)
+        instrinsc = without_preprocess_instrinscs[i]
+        exstrinsc = without_preprocess_exstrinscs[i]
+        instrinsc,exstrinsc=scaling_camera_params(instrinsc,exstrinsc,alpha)
+        instrinscs.append(instrinsc)
+        exstrinscs.append(exstrinsc)
 
-                images.append(img)
-                cur_camera_id+=1
-                cur_img_id+=1
-            split_img.save_imgs(cur_imgs, output_directory_image_path, iamge_name,exif_data)
-        else:
-
-            need_save_imgs=[]
-            need_save_instrinsc,need_save_exstrinsc=[],[]
-                    #比较相似度
-            for j in range(len(cur_imgs)):
-                if  tool.calculate_similarity(np.array(cur_imgs[j]), np.array(now_imgs[j]))<similarity_threshold:
-                    need_save_imgs.append(now_imgs[j])
-                    need_save_instrinsc.append(ins[j])
-                    need_save_exstrinsc.append(exs[j])
-                    cur_imgs[j]=now_imgs[j]
-            if need_save_imgs:
-                print(len(need_save_imgs))
-
-                for i in range(len(need_save_instrinsc)):
-                    camera=exif_process.instrinsc2camera(need_save_instrinsc[i],cur_camera_id,width//w_k,height//h_k)
-                    cameras.append(camera)
-                    img=exif_process.extrinsic2image(need_save_exstrinsc[i],cur_img_id,f"{iamge_name[:-4]}_{i+1}.jpg",camera.id)      
-                    images.append(img)
-                    cur_camera_id+=1
-                    cur_img_id+=1
-            
-                split_img.save_imgs(need_save_imgs, output_directory_image_path, iamge_name,exif_data)
-    print(cameras)
+        camera=exif_process.instrinsc2camera(instrinsc,cur_camera_id,width*alpha,height*alpha)
+        image=exif_process.extrinsic2image(exstrinsc,cur_img_id,iamge_name,camera.id)      
+        cameras[camera.id]=camera
+        images[image.id]=image
+        cur_camera_id+=1
+        cur_img_id+=1
+        scaling_image(input_image_path,os.path.join(output_directory_image_path,sorted_file_names[i]))
+    # print(cameras)
+    print(len(cameras))
     insert_camera_params(database_path, cameras)
     insert_image_params(database_path, images)
-    # write_cameras_text(cameras, camera_txt_path)
-    # write_images_text_without_p3d(images, image_txt_path)
+    write_cameras_text(cameras, camera_txt_path)
+    write_images_text_without_p3d(images, image_txt_path)
+    # np.save(instrinscs,os.path.join(output_directory,"ins.npy"))
+    # np.save(exstrinscs,os.path.join(output_directory,"exs.npy"))
+    np.savez(os.path.join(output_directory,"camera_params.npz"),instrinscs=instrinscs,exstrinscs=exstrinscs)
     # for i in range(len(cameras)):
     #     write_cameras_text(cameras[i], camera_txt_path)
     #     write_images_text(images[i], image_txt_path)
